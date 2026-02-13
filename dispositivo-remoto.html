@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>INTERFAZ REMOTA</title>
 
 <style>
@@ -13,9 +14,10 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    height: 100dvh;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* CONTADOR */
@@ -53,20 +55,23 @@ body {
 
 #teclado {
     display: grid;
-    grid-template-columns: repeat(3, 90px);
-    gap: 15px;
-    justify-content: center;
+    grid-template-columns: repeat(3, minmax(70px, 1fr));
+    gap: 12px;
+    width: 90vw;
+    max-width: 320px;
+    margin: 0 auto;
 }
 
 .boton {
-    width: 90px;
-    height: 90px;
+    aspect-ratio: 1 / 1;
+    width: 100%;
     background: #001a12;
     border: 1px solid #00ff88;
     color: #00ff88;
-    font-size: 20px;
+    font-size: 1.1rem;
     cursor: pointer;
     transition: 0.2s;
+    touch-action: manipulation;
 }
 
 .boton:hover {
@@ -116,6 +121,28 @@ input[type=range] {
     }
 }
 
+@media (max-width: 600px){
+
+    #pantalla{
+        width: 90vw;
+        max-width: 300px;
+        font-size: 24px;
+    }
+
+    #frecuenciaValor{
+        font-size: 22px;
+    }
+
+    h1{
+        font-size: 1.8rem !important;
+    }
+
+    p{
+        font-size: 1rem !important;
+    }
+
+}
+
 </style>
 </head>
 
@@ -130,7 +157,13 @@ input[type=range] {
         <h3>DISPOSITIVO NO SINCRONIZADO</h3>
         <p>Ajusta la frecuencia correcta</p>
 
-        <input type="range" id="frecuencia" min="0" max="10000" value="0">
+        <input type="range" 
+       id="frecuencia" 
+       min="0" 
+       max="100" 
+       step="0.01"
+       value="0"
+       style="width:90vw; max-width:400px;">
         <div id="frecuenciaValor">0.00 MHz</div>
     </div>
 
@@ -148,7 +181,7 @@ input[type=range] {
 
 /* ===== VARIABLES ===== */
 
-const frecuenciaCorrecta = 6920; // 69.20 MHz
+const frecuenciaCorrecta = 69.20; // 69.20 MHz
 const codigoCorrecto = "060920";
 
 let ingreso = "";
@@ -188,13 +221,11 @@ slider.addEventListener("input", () => {
 
     if(validando) return;
 
-    let valor = slider.value;
-    let mhz = (valor / 100).toFixed(2);
-    frecuenciaValor.innerText = mhz + " MHz";
-
+    let valor = parseFloat(slider.value);
+    frecuenciaValor.innerText = valor.toFixed(2) + " MHz";
     let diferencia = Math.abs(valor - frecuenciaCorrecta);
 
-    if(diferencia < 80){
+    if(diferencia < 0.8){
         document.body.classList.add("glitch");
     } else {
         document.body.classList.remove("glitch");
@@ -424,7 +455,8 @@ function iniciarSecuenciaFinal(){
     <div id="particles"></div>
 
     <!-- ====== CONTENIDO PRINCIPAL ====== -->
-    <svg width="500" height="600" viewBox="0 0 500 600" style="z-index:2;">
+    <svg viewBox="0 0 500 600" 
+     style="width:90vw; max-width:500px; height:auto;">
 
 <defs>
     <radialGradient id="blueRose">
