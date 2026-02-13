@@ -143,6 +143,22 @@ input[type=range] {
 
 }
 
+.botonControl{
+    width:50px;
+    height:50px;
+    font-size:22px;
+    background:#001a12;
+    border:1px solid #00ff88;
+    color:#00ff88;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.botonControl:hover{
+    background:#00ff88;
+    color:black;
+}
+
 </style>
 </head>
 
@@ -157,14 +173,24 @@ input[type=range] {
         <h3>DISPOSITIVO NO SINCRONIZADO</h3>
         <p>Ajusta la frecuencia correcta</p>
 
-        <input type="range" 
+        <div style="display:flex; align-items:center; justify-content:center; gap:15px; margin-top:15px;">
+
+    <button id="menosFrecuencia" class="botonControl">-</button>
+
+    <input type="range" 
        id="frecuencia" 
        min="0" 
        max="100" 
        step="0.01"
        value="0"
-       style="width:90vw; max-width:400px;">
-        <div id="frecuenciaValor">0.00 MHz</div>
+       style="width:60vw; max-width:300px;">
+
+    <button id="masFrecuencia" class="botonControl">+</button>
+
+</div>
+
+<div id="frecuenciaValor">0.00 MHz</div>
+
     </div>
 
     <!-- FASE 2 (OCULTA) -->
@@ -214,13 +240,58 @@ const intervalo = setInterval(() => {
 
 const slider = document.getElementById("frecuencia");
 const frecuenciaValor = document.getElementById("frecuenciaValor");
+const btnMas = document.getElementById("masFrecuencia");
+const btnMenos = document.getElementById("menosFrecuencia");
+
+function actualizarFrecuencia(valor){
+    slider.value = valor;
+    let diferencia = Math.abs(valor - frecuenciaCorrecta);
+    frecuenciaValor.innerText = valor.toFixed(2) + " MHz";
+
+    if(diferencia < 0.8){
+        document.body.classList.add("glitch");
+    } else {
+        document.body.classList.remove("glitch");
+    }
+
+    if(diferencia === 0){
+        iniciarValidacion();
+    }
+}
+
+let intervaloAjuste = null;
+
+function iniciarAjuste(direccion){
+    if(validando) return;
+
+    intervaloAjuste = setInterval(()=>{
+        let nuevoValor = parseFloat(slider.value) + direccion;
+        nuevoValor = Math.max(0, Math.min(100, nuevoValor));
+        actualizarFrecuencia(parseFloat(nuevoValor.toFixed(2)));
+    }, 50);
+}
+
+function detenerAjuste(){
+    clearInterval(intervaloAjuste);
+}
+
+/* PC */
+btnMas.addEventListener("mousedown", ()=> iniciarAjuste(0.01));
+btnMenos.addEventListener("mousedown", ()=> iniciarAjuste(-0.01));
+document.addEventListener("mouseup", detenerAjuste);
+
+/* MÓVIL */
+btnMas.addEventListener("touchstart", ()=> iniciarAjuste(0.01));
+btnMenos.addEventListener("touchstart", ()=> iniciarAjuste(-0.01));
+document.addEventListener("touchend", detenerAjuste);
+
 
 let validando = false;
 
 slider.addEventListener("input", () => {
 
     if(validando) return;
-
+    actualizarFrecuencia(parseFloat(slider.value));
     let valor = parseFloat(slider.value);
     frecuenciaValor.innerText = valor.toFixed(2) + " MHz";
     let diferencia = Math.abs(valor - frecuenciaCorrecta);
