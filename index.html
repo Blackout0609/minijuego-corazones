@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Protocolo V4L3NT1N</title>
+
+<style>
+
+/* ================= JUEGO ================= */
+
+#juego {
+    position: fixed;
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(to bottom, #ffd6e7, #ffb6d9);
+    text-align: center;
+    padding-top: 60px;
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+#zonaJuego {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    overflow: hidden;
+}
+
+.corazon {
+    position: absolute;
+    font-size: 32px;
+    cursor: pointer;
+    animation: caer 4s linear forwards;
+    transition: transform 0.2s;
+}
+
+.corazon:hover {
+    transform: scale(1.2);
+}
+
+@keyframes caer {
+    from { top: -50px; }
+    to { top: 100%; }
+}
+
+/* Oscurecimiento progresivo suave */
+#overlayOscuro {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.4), rgba(0,0,0,0.85));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+}
+
+/* Glitch */
+.glitchPantalla {
+    animation: glitchFull 0.1s infinite;
+}
+
+@keyframes glitchFull {
+    0% { transform: translate(3px,3px); }
+    50% { transform: translate(-3px,-3px); }
+    100% { transform: translate(3px,-3px); }
+}
+
+/* ================= SISTEMA ================= */
+
+body {
+    margin: 0;
+    background: black;
+    color: #00ff88;
+    font-family: "Courier New", monospace;
+    overflow-x: hidden;
+}
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    display: none;
+}
+
+#contenido {
+    position: relative;
+    z-index: 1;
+    padding: 50px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 12px;
+    max-width: 900px;
+    margin: 60px auto;
+    display: none;
+}
+
+#terminal {
+    font-size: 18px;
+    margin-bottom: 40px;
+    line-height: 1.6em;
+}
+
+#codigo {
+    margin-top: 30px;
+    margin-bottom: 25px;
+    word-wrap: break-word;
+    line-height: 1.6em;
+}
+
+#decodificador {
+    margin-top: 20px;
+}
+
+button, select {
+    background-color: black;
+    color: #00ff88;
+    border: 1px solid #00ff88;
+    padding: 10px 20px;
+    font-family: "Courier New", monospace;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+button:hover {
+    background-color: #00ff88;
+    color: black;
+}
+
+.alerta {
+    color: #ff4d4d;
+    font-weight: bold;
+}
+
+.colapso {
+    animation: distorsionSuave 3s infinite;
+}
+
+@keyframes distorsionSuave {
+    0% { filter: none; }
+    50% { filter: contrast(130%) brightness(110%); }
+    100% { filter: none; }
+}
+
+.mensajeCritico {
+    display: inline-block;
+    animation: temblorSuave 0.12s infinite alternate;
+}
+
+@keyframes temblorSuave {
+    0% { transform: translate(0.5px, -0.5px); }
+    100% { transform: translate(-0.5px, 0.5px); }
+}
+
+.bloqueado {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #ff4d4d;
+    color: #ff4d4d;
+}
+
+</style>
+</head>
+<body>
+
+<div id="juego">
+    <h1>💖 Mini juego especial 💖</h1>
+    <p>Haz clic en 20 corazones para desbloquear tu sorpresa...</p>
+    <div id="contador">Corazones: 0 / 20</div>
+    <div id="zonaJuego"></div>
+    <div id="overlayOscuro"></div>
+</div>
+
+<audio id="musicaFeliz" src="musica_feliz.mp3" preload="auto"></audio>
+<audio id="heartbeat" src="heartbeat.mp3" preload="auto"></audio>
+
+<canvas id="matrix"></canvas>
+
+<div id="contenido">
+    <div id="terminal"></div>
+
+    <button onclick="mostrarCodigo()" id="boton" style="display:none;">
+        Descifrar archivo
+    </button>
+
+    <div id="codigo" style="display:none;"></div>
+
+    <div id="decodificador" style="display:none;">
+        <p>> Selecciona método de decodificación:</p>
+
+        <select id="metodo">
+            <option value="rot13">ROT13</option>
+            <option value="reverse">Invertir texto</option>
+            <option value="caesar">César (shift 3)</option>
+            <option value="binary">Binario → Texto</option>
+            <option value="morse">Morse → Texto</option>
+            <option value="base64">Base64</option>
+        </select>
+
+        <br>
+        <button onclick="decodificar()">Intentar descifrar</button>
+
+        <div id="resultado" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="countdown" style="margin-top:30px;"></div>
+
+    <button id="botonFinal" style="display:none;" onclick="irAlSiguiente()">
+    EL DISPOSITIVO
+    </button>
+
+</div>
+
+<script>
+
+/* ================= JUEGO ================= */
+
+let contador = 0;
+const zona = document.getElementById("zonaJuego");
+const contadorTexto = document.getElementById("contador");
+const overlay = document.getElementById("overlayOscuro");
+const juego = document.getElementById("juego");
+const musicaFeliz = document.getElementById("musicaFeliz");
+
+function iniciarMusicaFeliz() {
+    musicaFeliz.currentTime = 0;
+    musicaFeliz.play();
+}
+
+function crearCorazon() {
+    const corazon = document.createElement("div");
+    corazon.classList.add("corazon");
+    corazon.innerHTML = "💗";
+    corazon.style.left = Math.random() * 90 + "%";
+
+    corazon.onclick = function() {
+        contador++;
+        contadorTexto.innerText = `Corazones: ${contador} / 20`;
+        corazon.remove();
+
+        // Oscurecer desde el corazón 13
+        if (contador >= 13) {
+
+            // 13 → 20 = 7 pasos
+            let progreso = (contador - 13) / 7;
+
+            // límite máximo para que nunca quede totalmente negro
+            if (progreso > 0.75) progreso = 0.75;
+
+            overlay.style.opacity = progreso;
+
+            // Opcional: hacer que el título se vea más "tenso"
+            document.querySelector("#juego h1").style.opacity = 1 - (progreso * 0.4);
+            document.querySelector("#contador").style.opacity = 1 - (progreso * 0.4);
+        }
+
+        // HACER LA MÚSICA MÁS LENTA Y GRAVE
+        let factor = 1 - contador * 0.02;  // disminuye 2% por corazón
+        if (factor < 0.5) factor = 0.5;   // límite mínimo para no quedarse muda
+
+        musicaFeliz.playbackRate = factor;
+
+        if (contador === 20) {
+            terminarJuego();
+        }
+    };
+
+    zona.appendChild(corazon);
+    setTimeout(() => corazon.remove(), 4000);
+}
+
+juego.addEventListener("click", function iniciarAudio() {
+    musicaFeliz.play().catch(e => console.log("Audio bloqueado: ", e));
+    // Quitamos el listener para que solo se llame una vez
+    juego.removeEventListener("click", iniciarAudio);
+});
+
+let lluvia = setInterval(crearCorazon, 800);
+
+function terminarJuego() {
+    clearInterval(lluvia);
+
+    // Cortar la música feliz o distorsionarla
+    if (!musicaFeliz.paused) {
+        // Opciones:
+        // Opción 1: corte abrupto
+        musicaFeliz.pause();
+        musicaFeliz.currentTime = 0;
+
+        // Opción 2: distorsión rápida (simulación)
+        // Se baja el volumen hasta 0 con un efecto raro
+        let vol = musicaFeliz.volume;
+        const distorsion = setInterval(() => {
+            vol -= 0.05;
+            musicaFeliz.volume = Math.random() > 0.5 ? vol : vol + 0.2; // efecto glitch
+            if (vol <= 0) {
+                musicaFeliz.pause();
+                musicaFeliz.volume = 1;
+                clearInterval(distorsion);
+            }
+        }, 50);
+    }
+
+    // Oscurecemos completamente
+    overlay.style.opacity = "1";
+
+    setTimeout(() => {
+
+        // Pantalla negra limpia (sin glitch constante)
+        juego.innerHTML = `
+        <div id="pantallaError" style="
+            color:#ff4d4d;
+            font-family:'Courier New', monospace;
+            text-align:center;
+            margin-top:18vh;
+            font-size:22px;
+            line-height:1.8em;
+        ">
+        > ERROR CRÍTICO...<br><br>
+        > ARCHIVO DEL SISTEMA CORRUPTO...<br>
+        > INTEGRIDAD COMPROMETIDA...
+        </div>
+        `;
+
+    }, 1500);
+
+
+    // Pausa larga para que lean el error
+    setTimeout(() => {
+
+        document.getElementById("pantallaError").innerHTML +=
+        "<br><br>> INICIANDO PROTOCOLO DE RECUPERACIÓN...";
+
+    }, 4500);
+
+
+    setTimeout(() => {
+
+        document.getElementById("pantallaError").innerHTML +=
+        "<br><br>> ESCANEANDO SECTORES █▒▒▒▒▒▒▒▒ 12%";
+
+    }, 6500);
+
+
+    setTimeout(() => {
+
+        document.getElementById("pantallaError").innerHTML +=
+        "<br>> RECONSTRUYENDO DATOS █████▒▒▒▒ 47%";
+
+    }, 8500);
+
+
+    setTimeout(() => {
+
+        document.getElementById("pantallaError").innerHTML +=
+        "<br>> RESTAURANDO MÓDULOS ██████████ 100%";
+
+    }, 10500);
+
+
+    setTimeout(() => {
+
+        document.getElementById("pantallaError").innerHTML +=
+        "<br><br>> SISTEMA RESTABLECIDO.<br>> REINICIANDO INTERFAZ...";
+
+    }, 12500);
+
+
+    // Ahora sí iniciamos el sistema real
+    setTimeout(() => {
+
+        juego.style.transition = "opacity 1.5s ease";
+        juego.style.opacity = "0";
+
+        setTimeout(() => {
+            juego.style.display = "none";
+            document.getElementById("matrix").style.display = "block";
+            document.getElementById("contenido").style.display = "block";
+            iniciarSistema();
+        }, 1500);
+
+    }, 15500);
+}
+
+
+/* ================= HEARTBEAT ================= */
+
+const heartbeat = document.getElementById("heartbeat");
+let heartbeatInterval;
+
+function iniciarLatido(lento = true) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+        heartbeat.currentTime = 0;
+        heartbeat.play();
+    }, lento ? 2800 : 1400);
+}
+
+/* ================= MATRIX ================= */
+
+const canvas = document.getElementById("matrix");
+const ctx = canvas.getContext("2d");
+canvas.height = window.innerHeight;
+canvas.width = window.innerWidth;
+
+const letters = "アイウエオカキクケコ0123456789";
+const fontSize = 18;
+const columns = Math.floor(canvas.width / fontSize);
+const drops = [];
+
+for (let x = 0; x < columns; x++) {
+    drops[x] = Math.random() * canvas.height;
+}
+
+function drawMatrix() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "rgba(0,255,120,0.6)";
+    ctx.font = fontSize + "px monospace";
+
+    for (let i = 0; i < drops.length; i++) {
+        const text = letters.charAt(Math.floor(Math.random() * letters.length));
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.98) {
+            drops[i] = 0;
+        }
+        drops[i]++;
+    }
+}
+
+setInterval(drawMatrix, 55);
+
+/* ================= TERMINAL ================= */
+
+const lineasSistema = [
+"> Sistema iniciado...",
+"> Identidad detectada...",
+"> Agente confirmada.",
+"> Protocolo V4L3NT1N activado.",
+"> Cargando archivo cifrado..."
+];
+
+let lineaActual = 0;
+let charActual = 0;
+
+function escribirLinea() {
+    const terminal = document.getElementById("terminal");
+
+    if (lineaActual < lineasSistema.length) {
+        if (charActual < lineasSistema[lineaActual].length) {
+            terminal.innerHTML += lineasSistema[lineaActual][charActual];
+            charActual++;
+            setTimeout(escribirLinea, 35);
+        } else {
+            terminal.innerHTML += "<br>";
+            lineaActual++;
+            charActual = 0;
+            setTimeout(escribirLinea, 400);
+        }
+    } else {
+        const boton = document.getElementById("boton");
+        boton.style.display = "inline-block";
+        bloquearHastaFecha();
+        iniciarCuentaRegresiva();
+        iniciarLatido(true);
+    }
+}
+
+function iniciarSistema() {
+    escribirLinea();
+}
+
+function bloquearHastaFecha() {
+
+    const boton = document.getElementById("boton");
+    const terminal = document.getElementById("terminal");
+
+    // 🔒 Fecha objetivo (Perú UTC-5)
+    const fechaObjetivo = new Date("2026-02-12T23:00:00-05:00").getTime();
+
+    boton.disabled = true;
+    boton.classList.add("bloqueado");
+
+    const mensajeBloqueo = document.createElement("div");
+    mensajeBloqueo.id = "mensajeBloqueo";
+    mensajeBloqueo.style.marginTop = "15px";
+    mensajeBloqueo.style.color = "#ff4d4d";
+    terminal.appendChild(mensajeBloqueo);
+
+    const intervalo = setInterval(() => {
+
+        const ahora = new Date().getTime();
+        const diferencia = fechaObjetivo - ahora;
+
+        if (diferencia <= 0) {
+
+            clearInterval(intervalo);
+
+            boton.disabled = false;
+            boton.classList.remove("bloqueado");
+
+            mensajeBloqueo.innerHTML =
+            "> Acceso autorizado.<br>> Archivo desbloqueado.";
+
+            return;
+        }
+
+        const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+
+        mensajeBloqueo.innerHTML =
+        `> ARCHIVO PROTEGIDO POR PROTOCOLO<br>
+         > Desbloqueo programado:<br>
+         > 12/02 - 23:00 (UTC-5)<br><br>
+         > Tiempo restante:<br>
+         ${dias}d ${horas}h ${minutos}m ${segundos}s`;
+
+    }, 1000);
+}
+
+/* ================= CUENTA REGRESIVA ================= */
+
+function iniciarCuentaRegresiva() {
+    const countdown = document.getElementById("countdown");
+    const fechaFinal = new Date("2026-02-14T20:00:00-05:00").getTime();
+    botonFinal.style.display = "inline-block";
+    setInterval(function() {
+        const ahora = new Date().getTime();
+        const diferencia = fechaFinal - ahora;
+
+        const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+
+        countdown.innerHTML =
+        `> Tiempo restante para que el sistema colapse:<br>${dias}d ${horas}h ${minutos}m ${segundos}s`;
+    }, 1000);
+
+}
+
+/* ================= CODIGO ================= */
+
+const mensajeCifrado =
+"TG8gcXVlIGJ1c2Nhcywgbm8gbG8gZW5jb250cmFyYXMuIFNvbG8gZW4gbGEgY3VldmEgZGVsIG9zbyBlbmNvbnRyYXJhcyBsYSByZXNwdWVzdGEuIDA2MDkyMA==";
+
+function mostrarCodigo() {
+    document.getElementById("codigo").style.display = "block";
+    document.getElementById("decodificador").style.display = "block";
+
+    document.getElementById("codigo").innerHTML =
+    `> Archivo encriptado detectado:<br><br>${mensajeCifrado}<br>`;
+}
+
+/* ================= DECODIFICADOR ================= */
+
+function rot13(str){
+    return str.replace(/[a-zA-Z]/g, function(c){
+        return String.fromCharCode(
+            (c<="Z"?90:122)>=(c=c.charCodeAt(0)+13)?c:c-26);
+    });
+}
+
+function decodificar() {
+    const metodo = document.getElementById("metodo").value;
+    let resultado = "";
+
+    switch(metodo) {
+
+        case "rot13":
+            resultado = rot13(mensajeCifrado);
+            break;
+
+        case "reverse":
+            resultado = mensajeCifrado.split("").reverse().join("");
+            break;
+
+        case "caesar":
+            resultado = mensajeCifrado.replace(/[a-z]/gi, c =>
+                String.fromCharCode(c.charCodeAt(0) + 3));
+            break;
+
+        case "binary":
+        case "morse":
+            resultado = "Método incorrecto...";
+            break;
+
+        case "base64":
+            resultado = atob(mensajeCifrado);
+            break;
+
+        default:
+            resultado = "Método incorrecto...";
+    }
+
+    const contenedorResultado = document.getElementById("resultado");
+
+    // SI ES CORRECTO
+    if (metodo === "base64" && resultado.includes("060920")) {
+
+        resultado = resultado.replace(
+            "060920",
+            "<span class='alerta'>060920</span>"
+        );
+
+        contenedorResultado.innerHTML =
+        `> Resultado:<br><br>${resultado}`;
+
+        document.body.classList.add("colapso");
+        iniciarLatido(false);
+
+        // PEQUEÑO GLITCH
+        setTimeout(() => {
+            document.body.classList.add("glitchPantalla");
+
+            setTimeout(() => {
+                document.body.classList.remove("glitchPantalla");
+                escribirMensajeCritico();
+            }, 600);
+
+        }, 1200);
+
+    } else {
+
+        contenedorResultado.innerHTML =
+        `> Resultado:<br><br>${resultado}`;
+
+    }
+}
+
+function escribirMensajeCritico() {
+
+    const mensaje = [
+        "> SISTEMA COMPROMETIDO...",
+        "> ESTADO CRÍTICO...",
+        "> ENCUENTRA EL DISPOSITIVO...",
+        "> SE NOS ACABA EL TIEMPO..."
+    ];
+
+    const contenedor = document.getElementById("resultado");
+
+    let linea = 0;
+    let char = 0;
+
+    // Creamos un div especial para que tiemble
+    const bloque = document.createElement("div");
+    bloque.classList.add("mensajeCritico");
+    contenedor.appendChild(document.createElement("br"));
+    contenedor.appendChild(document.createElement("br"));
+    contenedor.appendChild(bloque);
+    
+    function escribir() {
+
+        if (linea < mensaje.length) {
+
+            if (char < mensaje[linea].length) {
+
+                bloque.innerHTML += mensaje[linea][char];
+                char++;
+                setTimeout(escribir, 40);
+
+            } else {
+
+                bloque.innerHTML += "<br>";
+                linea++;
+                char = 0;
+                setTimeout(escribir, 300);
+            }
+
+        }
+    }
+
+    escribir();
+}
+
+function irAlSiguiente() {
+    window.location.href = "dispositivo-remoto.html";
+}
+
+</script>
+</body>
+</html>
+
+

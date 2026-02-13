@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>INTERFAZ REMOTA</title>
+
+<style>
+
+body {
+    background: black;
+    color: #00ff88;
+    font-family: monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* CONTADOR */
+
+#contador {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    font-size: 22px;
+}
+
+/* CONTENEDOR GENERAL */
+
+#contenedor {
+    text-align: center;
+}
+
+/* PANTALLA */
+
+#pantalla {
+    width: 340px;
+    height: 70px;
+    background: #000;
+    border: 2px solid #00ff88;
+    margin: 25px auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 10px;
+    font-size: 32px;
+    letter-spacing: 8px;
+}
+
+/* TECLADO */
+
+#teclado {
+    display: grid;
+    grid-template-columns: repeat(3, 90px);
+    gap: 15px;
+    justify-content: center;
+}
+
+.boton {
+    width: 90px;
+    height: 90px;
+    background: #001a12;
+    border: 1px solid #00ff88;
+    color: #00ff88;
+    font-size: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.boton:hover {
+    background: #00ff88;
+    color: black;
+}
+
+/* PUZZLE */
+
+#frecuenciaValor {
+    font-size: 28px;
+    margin-top: 20px;
+}
+
+input[type=range] {
+    width: 300px;
+    margin-top: 20px;
+}
+
+/* GLITCH */
+
+.glitch {
+    animation: glitch 0.15s infinite;
+}
+
+@keyframes glitch {
+    0% { transform: translate(3px, -3px); }
+    25% { transform: translate(-3px, 3px); }
+    50% { transform: translate(3px, 3px); }
+    75% { transform: translate(-3px, -3px); }
+    100% { transform: translate(0); }
+}
+
+.rojo {
+    color: red !important;
+}
+
+.dibujar {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: trazo 3s ease forwards;
+}
+
+@keyframes trazo {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="contador">05:00</div>
+
+<div id="contenedor">
+
+    <!-- FASE 1 -->
+    <div id="fase1">
+        <h3>DISPOSITIVO NO SINCRONIZADO</h3>
+        <p>Ajusta la frecuencia correcta</p>
+
+        <input type="range" id="frecuencia" min="0" max="10000" value="0">
+        <div id="frecuenciaValor">0.00 MHz</div>
+    </div>
+
+    <!-- FASE 2 (OCULTA) -->
+    <div id="fase2" style="display:none;">
+        <h3>SEÑAL ESTABLECIDA</h3>
+        <div id="pantalla"></div>
+        <div id="teclado"></div>
+        <div id="mensaje"></div>
+    </div>
+
+</div>
+
+<script>
+
+/* ===== VARIABLES ===== */
+
+const frecuenciaCorrecta = 6920; // 69.20 MHz
+const codigoCorrecto = "060920";
+
+let ingreso = "";
+
+/* ===== CONTADOR ===== */
+
+let tiempo = 300;
+const contador = document.getElementById("contador");
+
+const intervalo = setInterval(() => {
+
+    let minutos = Math.floor(tiempo / 60);
+    let segundos = tiempo % 60;
+    if(segundos < 10) segundos = "0" + segundos;
+
+    contador.innerText = minutos + ":" + segundos;
+
+    if(tiempo <= 60) contador.classList.add("rojo");
+
+    if(tiempo <= 0){
+        clearInterval(intervalo);
+        document.body.innerHTML = "<h1 style='color:red;'>CONEXIÓN TERMINADA</h1>";
+    }
+
+    tiempo--;
+
+}, 1000);
+
+/* ===== PUZZLE FRECUENCIA ===== */
+
+const slider = document.getElementById("frecuencia");
+const frecuenciaValor = document.getElementById("frecuenciaValor");
+
+let validando = false;
+
+slider.addEventListener("input", () => {
+
+    if(validando) return;
+
+    let valor = slider.value;
+    let mhz = (valor / 100).toFixed(2);
+    frecuenciaValor.innerText = mhz + " MHz";
+
+    let diferencia = Math.abs(valor - frecuenciaCorrecta);
+
+    if(diferencia < 80){
+        document.body.classList.add("glitch");
+    } else {
+        document.body.classList.remove("glitch");
+    }
+
+    if(diferencia === 0){
+        iniciarValidacion();
+    }
+
+});
+
+
+function iniciarValidacion(){
+
+    validando = true;
+    slider.disabled = true;
+
+    document.body.classList.remove("glitch");
+
+    frecuenciaValor.innerText = "VALIDANDO SEÑAL...";
+    document.body.classList.add("glitch");
+
+    setTimeout(() => {
+
+        document.body.classList.remove("glitch");
+        frecuenciaValor.innerText = "SEÑAL ESTABLECIDA";
+        
+        setTimeout(() => {
+            activarDispositivo();
+        }, 1200);
+
+    }, 2500);
+}
+
+
+/* ===== ACTIVAR FASE 2 ===== */
+
+function activarDispositivo(){
+
+    document.body.classList.remove("glitch"); // aseguramos que no quede vibrando
+
+    document.getElementById("fase1").style.display = "none";
+    document.getElementById("fase2").style.display = "block";
+}
+
+
+/* ===== TECLADO ===== */
+
+const teclado = document.getElementById("teclado");
+const pantalla = document.getElementById("pantalla");
+const mensaje = document.getElementById("mensaje");
+
+const botones = [
+    "1","2","3",
+    "4","5","6",
+    "7","8","9",
+    "CLEAR","0","OK"
+];
+
+botones.forEach(texto => {
+    const btn = document.createElement("button");
+    btn.innerText = texto;
+    btn.className = "boton";
+    btn.onclick = () => manejarIngreso(texto);
+    teclado.appendChild(btn);
+});
+
+function manejarIngreso(valor) {
+
+    if(valor === "CLEAR"){
+        ingreso = "";
+    }
+    else if(valor === "OK"){
+        verificarCodigo();
+        return;
+    }
+    else {
+        if(ingreso.length < 6){
+            ingreso += valor;
+        }
+    }
+
+    pantalla.innerText = "●".repeat(ingreso.length);
+}
+
+function verificarCodigo(){
+
+    if(ingreso === codigoCorrecto){
+        clearInterval(intervalo);
+        iniciarSecuenciaFinal();
+    }
+    else{
+        mensaje.innerText = "ERROR";
+        document.body.classList.add("glitch");
+
+        setTimeout(() => {
+            document.body.classList.remove("glitch");
+            mensaje.innerText = "";
+            ingreso = "";
+            pantalla.innerText = "";
+        }, 800);
+    }
+}
+
+/* ===== SECUENCIA LCD FINAL ===== */
+
+function iniciarSecuenciaFinal(){
+
+    document.getElementById("fase2").innerHTML = `
+        <div id="lcd" style="
+            width: 380px;
+            height: 120px;
+            background:#001a12;
+            border:3px solid #00ff88;
+            padding:20px;
+            font-size:20px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            box-shadow:0 0 20px #00ff88;
+        ">
+            <div id="linea1"></div>
+            <div id="linea2"></div>
+        </div>
+        <div id="ledAzul" style="
+            width:20px;
+            height:20px;
+            border-radius:50%;
+            background:#002244;
+            margin-top:15px;
+        "></div>
+    `;
+
+    const linea1 = document.getElementById("linea1");
+    const linea2 = document.getElementById("linea2");
+    const led = document.getElementById("ledAzul");
+
+    function lcdPrint(l1="", l2=""){
+        linea1.innerText = l1;
+        linea2.innerText = l2;
+    }
+
+    function beep(freq){
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = "square";
+        osc.frequency.value = freq;
+        osc.connect(ctx.destination);
+        osc.start();
+        setTimeout(() => {
+            osc.stop();
+            ctx.close();
+        }, 200);
+    }
+
+    async function secuencia(){
+
+        lcdPrint("Desactivando...");
+        beep(1200);
+        await esperar(2500);
+
+        lcdPrint("Cancelando", "Protocolo V4L3NT1N");
+        await esperar(4000);
+
+        lcdPrint("Restableciendo", "Control del Sistema");
+        await esperar(3500);
+
+        lcdPrint("Verificando", "Integridad...");
+        await esperar(4000);
+
+        lcdPrint("Control", "Recuperado");
+        led.style.background = "blue";
+        beep(1800);
+        await esperar(3500);
+
+        lcdPrint("Sistema Estable...", "Sin Amenazas...");
+        await esperar(3500);
+
+        lcdPrint("Perdon por haberte hecho", "pasar por todo esto...");
+        await esperar(4000);
+
+        lcdPrint("Realmente queria hacer", "algo distinto para tí...");
+        await esperar(4000);
+
+        lcdPrint("Quizas no era", "lo que esperabas...");
+        await esperar(4000);
+
+        lcdPrint("De todas formas", "quería preguntarte si:");
+        await esperar(4000);
+
+        lcdPrint("Quisieras ser mi", "San Valentin?");
+        await esperar(2000);
+
+        mostrarDecision();
+    }
+
+    function mostrarDecision(){
+        document.getElementById("fase2").innerHTML += `
+            <div style="margin-top:25px;">
+                <button onclick="respuestaSi()" style="padding:10px 25px; margin-right:20px;">SI</button>
+                <button onclick="respuestaNo()" style="padding:10px 25px;">NO</button>
+            </div>
+        `;
+    }
+
+    window.respuestaSi = function(){
+
+    document.body.innerHTML = `
+    <div style="
+        position:relative;
+        background: radial-gradient(circle at center, #070b1f, #000);
+        height:100vh;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        color:white;
+        font-family:'Segoe UI', sans-serif;
+        overflow:hidden;
+    ">
+
+    <!-- ====== FONDO CORAZONES ====== -->
+    <div id="hearts"></div>
+
+    <!-- ====== PARTICULAS ====== -->
+    <div id="particles"></div>
+
+    <!-- ====== CONTENIDO PRINCIPAL ====== -->
+    <svg width="500" height="600" viewBox="0 0 500 600" style="z-index:2;">
+
+<defs>
+    <radialGradient id="blueRose">
+        <stop offset="0%" stop-color="#c9f4ff"/>
+        <stop offset="50%" stop-color="#3a86ff"/>
+        <stop offset="100%" stop-color="#0b1c6d"/>
+    </radialGradient>
+
+    <filter id="glow">
+        <feGaussianBlur stdDeviation="4" result="blur"/>
+        <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+    </filter>
+</defs>
+
+<!-- ================= TALLOS ================= -->
+
+<path d="M250 560 Q240 420 250 330"
+      stroke="#00ffc8"
+      stroke-width="4"
+      fill="none"
+      stroke-dasharray="400"
+      stroke-dashoffset="400">
+    <animate attributeName="stroke-dashoffset"
+             from="400" to="0"
+             dur="3s"
+             fill="freeze"/>
+</path>
+
+<path d="M250 560 Q310 430 320 300"
+      stroke="#00ffc8"
+      stroke-width="4"
+      fill="none"
+      stroke-dasharray="450"
+      stroke-dashoffset="450">
+    <animate attributeName="stroke-dashoffset"
+             from="450" to="0"
+             dur="3s"
+             begin="1s"
+             fill="freeze"/>
+</path>
+
+<path d="M250 560 Q180 430 160 310"
+      stroke="#00ffc8"
+      stroke-width="4"
+      fill="none"
+      stroke-dasharray="450"
+      stroke-dashoffset="450">
+    <animate attributeName="stroke-dashoffset"
+             from="450" to="0"
+             dur="3s"
+             begin="2s"
+             fill="freeze"/>
+</path>
+
+<!-- ================= ROSAS ================= -->
+
+<!-- Rosa 1 -->
+<g transform="translate(250,300)">
+    <g opacity="0" filter="url(#glow)">
+
+        <path d="M0 -45
+                 C 35 -45 45 -10 25 15
+                 C 45 20 45 55 0 65
+                 C -45 55 -45 20 -25 15
+                 C -45 -10 -35 -45 0 -45 Z"
+              fill="url(#blueRose)"/>
+
+        <animate attributeName="opacity"
+                 from="0" to="1"
+                 dur="1.5s"
+                 begin="3s"
+                 fill="freeze"/>
+
+        <animateTransform attributeName="transform"
+                          type="scale"
+                          from="0"
+                          to="1"
+                          dur="1.5s"
+                          begin="3s"
+                          fill="freeze"
+                          additive="sum"/>
+    </g>
+</g>
+
+
+<!-- Rosa 2 -->
+<g transform="translate(320,260)">
+    <g opacity="0" filter="url(#glow)">
+
+        <path d="M0 -40
+                 C 30 -40 40 -10 20 10
+                 C 40 10 40 45 0 55
+                 C -40 45 -40 10 -20 10
+                 C -40 -10 -30 -40 0 -40 Z"
+              fill="url(#blueRose)"/>
+
+        <animate attributeName="opacity"
+                 from="0" to="1"
+                 dur="1.5s"
+                 begin="4.5s"
+                 fill="freeze"/>
+
+        <animateTransform attributeName="transform"
+                          type="scale"
+                          from="0"
+                          to="1"
+                          dur="1.5s"
+                          begin="4.5s"
+                          fill="freeze"
+                          additive="sum"/>
+    </g>
+</g>
+
+
+<!-- Rosa 3 -->
+<g transform="translate(160,270)">
+    <g opacity="0" filter="url(#glow)">
+
+        <path d="M0 -40
+                 C 30 -40 40 -10 20 10
+                 C 40 10 40 45 0 55
+                 C -40 45 -40 10 -20 10
+                 C -40 -10 -30 -40 0 -40 Z"
+              fill="url(#blueRose)"/>
+
+        <animate attributeName="opacity"
+                 from="0" to="1"
+                 dur="1.5s"
+                 begin="6s"
+                 fill="freeze"/>
+
+        <animateTransform attributeName="transform"
+                          type="scale"
+                          from="0"
+                          to="1"
+                          dur="1.5s"
+                          begin="6s"
+                          fill="freeze"
+                          additive="sum"/>
+    </g>
+</g>
+
+
+</svg>
+
+
+    <h1 id="titulo" style="
+        margin-top:10px;
+        opacity:0;
+        font-size:2.8em;
+        color:#9be7ff;
+        z-index:2;
+    ">
+        Para ti, mi Rossy 💙
+    </h1>
+
+    <p id="dedicatoria" style="
+        max-width:650px;
+        margin-top:15px;
+        opacity:0;
+        font-size:1.2em;
+        line-height:1.6em;
+        z-index:2;
+    ">
+        Solo quería decirte lo mucho que te amo y lo mucho que significas para mí...  
+        Créeme que cada vez es más dificil tratar de soprenderte, pero siempre vale la pena por verte feliz mi reina...
+        Eres todo para mí y seguiré esforzandome para ser el hombre que mereces y sobretodo que ames siempre.
+    </p>
+
+    <style>
+
+    /* ===== CORAZONES ===== */
+    #hearts span{
+        position:absolute;
+        color:#ff4da6;
+        font-size:20px;
+        animation:floatHeart linear infinite;
+    }
+
+    @keyframes floatHeart{
+        from{ transform:translateY(100vh) scale(0.5); opacity:0; }
+        20%{ opacity:1; }
+        to{ transform:translateY(-10vh) scale(1.2); opacity:0; }
+    }
+
+    /* ===== PARTICULAS ===== */
+    #particles span{
+        position:absolute;
+        width:4px;
+        height:4px;
+        background:white;
+        border-radius:50%;
+        opacity:0.7;
+        animation:floatParticle linear infinite;
+    }
+
+    @keyframes floatParticle{
+        from{ transform:translateY(100vh); opacity:0; }
+        20%{ opacity:1; }
+        to{ transform:translateY(-10vh); opacity:0; }
+    }
+
+    </style>
+
+    </div>
+    `;
+
+    /* ===== GENERAR CORAZONES ===== */
+    const heartsContainer = document.getElementById("hearts");
+    for(let i=0;i<30;i++){
+        let heart = document.createElement("span");
+        heart.innerHTML = "💙";
+        heart.style.left = Math.random()*100+"vw";
+        heart.style.animationDuration = (6 + Math.random()*6)+"s";
+        heart.style.fontSize = (15 + Math.random()*25)+"px";
+        heartsContainer.appendChild(heart);
+    }
+
+    /* ===== GENERAR PARTICULAS ===== */
+    const particlesContainer = document.getElementById("particles");
+    for(let i=0;i<40;i++){
+        let particle = document.createElement("span");
+        particle.style.left = Math.random()*100+"vw";
+        particle.style.animationDuration = (5 + Math.random()*5)+"s";
+        particle.style.width = particle.style.height = (2 + Math.random()*4)+"px";
+        particlesContainer.appendChild(particle);
+    }
+
+    /* Texto sincronizado */
+    setTimeout(()=>{
+        document.getElementById("titulo").style.transition="2s";
+        document.getElementById("titulo").style.opacity="1";
+    },8000);
+
+    setTimeout(()=>{
+        document.getElementById("dedicatoria").style.transition="3s";
+        document.getElementById("dedicatoria").style.opacity="1";
+    },9500);
+
+    setTimeout(()=>{
+        melodiaFinal();
+    },10000);
+
+}
+
+
+    window.respuestaNo = function(){
+        autodestruccion();
+    }
+
+    secuencia();
+}
+
+function esperar(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* ===== MELODIA FINAL ===== */
+
+function melodiaFinal(){
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notas = [523, 659, 784, 1046];
+
+    let i = 0;
+    const intervalo = setInterval(()=>{
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = notas[i];
+        osc.connect(ctx.destination);
+        osc.start();
+        setTimeout(()=>osc.stop(), 200);
+        i++;
+        if(i >= notas.length){
+            clearInterval(intervalo);
+            setTimeout(()=>ctx.close(), 500);
+        }
+    }, 300);
+}
+
+function efectoMaquina(){
+
+    const texto = "Desde el primer momento supe que quería algo distinto contigo.\n\nGracias por ser mi calma en medio del caos.\n\n¿Quieres seguir siendo mi persona favorita? ❤️";
+    const contenedor = document.getElementById("dedicatoria");
+
+    let i = 0;
+
+    function escribir(){
+        if(i < texto.length){
+            contenedor.innerHTML += texto[i] === "\n" ? "<br>" : texto[i];
+            i++;
+            setTimeout(escribir, 40);
+        }
+    }
+
+    escribir();
+}
+
+function crearParticulas(){
+
+    const contenedor = document.getElementById("particulas");
+
+    for(let i=0; i<40; i++){
+
+        const corazon = document.createElement("div");
+        corazon.innerHTML = "❤";
+        corazon.style.position = "absolute";
+        corazon.style.left = Math.random()*100 + "%";
+        corazon.style.top = "100%";
+        corazon.style.fontSize = (10 + Math.random()*20) + "px";
+        corazon.style.opacity = Math.random();
+        corazon.style.animation = "flotar " + (5 + Math.random()*5) + "s linear infinite";
+
+        contenedor.appendChild(corazon);
+    }
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        @keyframes flotar {
+            from { transform: translateY(0); }
+            to { transform: translateY(-120vh); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+
+/* ===== AUTODESTRUCCION ===== */
+
+function autodestruccion(){
+
+    document.body.innerHTML = `
+        <div id="panic" style="
+            background:black;
+            color:red;
+            font-family:monospace;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            align-items:center;
+            height:100vh;
+            text-align:center;
+        ">
+            <h1 id="alerta">⚠ PROTOCOLO V4L3NT1N REACTIVADO ⚠</h1>
+            <p id="estado">Iniciando secuencia crítica...</p>
+            <h2 id="cuenta" style="margin-top:20px;"></h2>
+        </div>
+    `;
+
+    let tiempo = 10;
+    const cuenta = document.getElementById("cuenta");
+    const estado = document.getElementById("estado");
+    const alerta = document.getElementById("alerta");
+
+    // 🔊 Alarma
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function alarma(){
+        const osc = ctx.createOscillator();
+        osc.type = "sawtooth";
+        osc.frequency.value = 200;
+        osc.connect(ctx.destination);
+        osc.start();
+        setTimeout(()=>osc.stop(),300);
+    }
+
+    const sirena = setInterval(()=>{
+        alarma();
+        document.body.style.background =
+            document.body.style.background === "darkred" ? "black" : "darkred";
+    },500);
+
+    const intervalo = setInterval(()=>{
+
+        cuenta.innerText = "AUTODESTRUCCIÓN EN: " + tiempo;
+
+        if(tiempo === 7)
+            estado.innerText = "Corrompiendo archivos del sistema...";
+
+        if(tiempo === 5)
+            estado.innerText = "Pérdida de integridad detectada...";
+
+        if(tiempo === 3)
+            estado.innerText = "Fallo crítico irreversible...";
+
+        if(tiempo <= 0){
+            clearInterval(intervalo);
+            clearInterval(sirena);
+            ctx.close();
+
+            document.body.innerHTML = `
+                <div style="
+                    background:black;
+                    color:#550000;
+                    font-family:monospace;
+                    display:flex;
+                    flex-direction:column;
+                    justify-content:center;
+                    align-items:center;
+                    height:100vh;
+                    text-align:center;
+                ">
+                    <h1>ERROR FATAL</h1>
+                    <p>Sistema en colapso total.</p>
+                    <p style="opacity:0.4;margin-top:20px;">
+                        Jamás debiste presionar ese botón.
+                    </p>
+                </div>
+            `;
+        }
+
+        tiempo--;
+
+    },1000);
+}
+
+
+</script>
+
+</body>
+</html>
